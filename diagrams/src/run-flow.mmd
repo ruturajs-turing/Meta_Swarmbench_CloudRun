@@ -1,0 +1,23 @@
+sequenceDiagram
+  participant U as User
+  participant P as Parent Sandbox
+  participant C as Control Plane
+  participant O as Orchestrator
+  participant E as Execution Sandbox
+  participant S as Object Store
+  participant A as Admin Panel
+
+  U->>P: runnerctl run task.toml
+  P->>C: submit run request
+  C->>C: validate TOML, quota, image, secrets
+  C->>O: enqueue run
+  O->>E: create execution sandbox
+  O->>E: stage inputs and normalized spec
+  E->>E: run-agent executes command
+  E-->>C: stream logs and metrics
+  E-->>S: upload artifacts and manifests
+  C-->>A: live state, metrics, cost
+  E->>C: final result
+  O->>E: destroy sandbox
+  C->>S: finalize result bundle
+  C-->>U: status, logs, download URL

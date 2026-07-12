@@ -1,0 +1,25 @@
+flowchart TB
+  user["User Terminal / IDE / CLI"]
+  gateway["Access Gateway / Terminal Broker"]
+  parent["Parent Sandbox<br/>User workspace only"]
+  api["Control Plane API<br/>auth, quotas, runs, billing"]
+  orch["Run Orchestrator<br/>queue, validation, cleanup"]
+  db["Postgres + Object Store<br/>logs, artifacts, metadata, cost"]
+  admin["Admin Dashboard<br/>fleet, users, runs, cost"]
+  e2b["E2B Adapter"]
+  daytona["Daytona Adapter"]
+  exec["Ephemeral Execution Sandbox<br/>one run only"]
+
+  user --> gateway
+  gateway --> parent
+  parent -->|"runnerctl run task.toml"| api
+  user -->|"local CLI / rsync / API"| api
+  admin --> api
+  api --> db
+  api --> orch
+  orch --> e2b
+  orch --> daytona
+  e2b --> exec
+  daytona --> exec
+  exec -->|"logs / metrics / artifacts"| db
+  exec -->|"final status"| api

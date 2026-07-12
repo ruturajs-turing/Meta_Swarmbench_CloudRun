@@ -1,0 +1,83 @@
+erDiagram
+  organizations ||--o{ users : owns
+  organizations ||--o{ parent_sandboxes : owns
+  organizations ||--o{ runs : owns
+  organizations ||--o{ execution_sandboxes : owns
+  organizations ||--o{ quotas : configures
+  organizations ||--o{ cost_records : accrues
+  users ||--o{ parent_sandboxes : uses
+  users ||--o{ runs : submits
+  users ||--o{ execution_sandboxes : owns
+  parent_sandboxes ||--o{ runs : submits_from
+  runs ||--o| execution_sandboxes : provisions
+  runs ||--o{ run_events : emits
+  runs ||--o{ artifacts : produces
+  runs ||--o{ cost_records : costs
+  users ||--o{ audit_log : acts
+
+  organizations {
+    text id PK
+    text name
+    timestamptz created_at
+  }
+  users {
+    text id PK
+    text org_id FK
+    text email
+    text role
+    text state
+  }
+  parent_sandboxes {
+    text id PK
+    text provider
+    text provider_sandbox_id
+    text user_id FK
+    text state
+    timestamptz refresh_after_at
+  }
+  runs {
+    text id PK
+    text user_id FK
+    text parent_sandbox_id FK
+    text state
+    jsonb normalized_spec_json
+    text artifact_uri
+  }
+  execution_sandboxes {
+    text id PK
+    text run_id FK
+    text provider
+    text state
+    text cleanup_state
+  }
+  run_events {
+    bigint id PK
+    text run_id FK
+    timestamptz ts
+    text type
+    bigint sequence_number
+  }
+  artifacts {
+    text id PK
+    text run_id FK
+    text uri
+    text kind
+    bigint size_bytes
+  }
+  quotas {
+    text id PK
+    text org_id FK
+    text user_id FK
+    int max_active_runs
+  }
+  cost_records {
+    bigint id PK
+    text run_id FK
+    numeric amount_usd
+  }
+  audit_log {
+    bigint id PK
+    text actor_user_id FK
+    text action
+    text target_type
+  }

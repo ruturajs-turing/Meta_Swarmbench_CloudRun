@@ -1,0 +1,20 @@
+flowchart TB
+  tick["Every 1 minute"]
+  list["List provider sandboxes<br/>metadata managed_by=aegisrun"]
+  match["Match provider sandboxes<br/>to DB runs"]
+  terminal{"Run terminal?"}
+  active{"Still active<br/>within TTL?"}
+  artifact{"Artifacts finalized?"}
+  kill["Kill execution sandbox"]
+  retry["Retry artifact upload"]
+  mark["Mark CLEANUP_FAILED<br/>and audit"]
+  done["Set cleanup_state=destroyed"]
+
+  tick --> list --> match --> terminal
+  terminal -->|yes| artifact
+  artifact -->|yes| kill --> done
+  artifact -->|no| retry --> artifact
+  terminal -->|no| active
+  active -->|yes| done
+  active -->|no| kill
+  kill -->|provider error| mark

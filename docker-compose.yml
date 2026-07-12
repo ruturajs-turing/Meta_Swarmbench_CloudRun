@@ -1,0 +1,77 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aegisrun
+      POSTGRES_USER: aegisrun
+      POSTGRES_PASSWORD: aegisrun
+    ports:
+      - "55432:5432"
+    volumes:
+      - aegisrun_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegisrun -d aegisrun"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ./api
+    environment:
+      DATABASE_URL: postgresql+psycopg://aegisrun:aegisrun@db:5432/aegisrun
+      STORAGE_ROOT: ${PWD}/storage
+      RUNNER_IMAGE: python:3.12-slim
+      HARBOR_RUNNER_IMAGE: ${AEGISRUN_HARBOR_RUNNER_IMAGE:-aegisrun/harbor-runner:local}
+      PARENT_IMAGE: ${AEGISRUN_PARENT_IMAGE:-aegisrun/harbor-runner:local}
+      PARENT_TEMPLATE_VERSION: ${AEGISRUN_PARENT_TEMPLATE_VERSION:-harbor-opencode-2026.07.10}
+      HARBOR_RUNTIME_ENABLED: ${AEGISRUN_HARBOR_RUNTIME_ENABLED:-false}
+      FIREWORKS_API_KEY: ${FIREWORKS_API_KEY:-}
+      FIREWORKS_MODEL: ${FIREWORKS_MODEL:-accounts/fireworks/models/kimi-k2p6}
+      SSH_PUBLIC_HOST: ${AEGISRUN_PUBLIC_HOST:-localhost}
+      SSH_PUBLIC_PORT: ${AEGISRUN_PUBLIC_SSH_PORT:-2222}
+      CORS_ORIGINS: http://localhost:5177,http://127.0.0.1:5177
+    ports:
+      - "18080:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}/storage:${PWD}/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  gateway:
+    build:
+      context: ./gateway
+    environment:
+      AEGISRUN_API_URL: http://api:8000
+      AEGISRUN_GATEWAY_STORAGE: /data
+      AEGISRUN_SSH_PORT: 8022
+      AEGISRUN_PUBLIC_SSH_HOST: ${AEGISRUN_PUBLIC_HOST:-localhost}
+      AEGISRUN_PUBLIC_SSH_PORT: ${AEGISRUN_PUBLIC_SSH_PORT:-2222}
+    ports:
+      - "2222:8022"
+    volumes:
+      - ${PWD}/storage:/data
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+    environment:
+      VITE_API_URL: http://localhost:18080
+    ports:
+      - "5177:5177"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  aegisrun_pg:

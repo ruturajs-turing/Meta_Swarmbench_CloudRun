@@ -1,0 +1,36 @@
+flowchart LR
+  user["User CLI / Terminal"]
+  admin["Admin Dashboard"]
+  svc["Service callbacks"]
+  api["Control Plane API"]
+
+  subgraph userapi["User API"]
+    sessions["/v1/sessions"]
+    parent["/v1/parent/*"]
+    runs["/v1/runs/*"]
+    artifacts["/v1/runs/{id}/artifacts"]
+    stream["/v1/runs/{id}/stream"]
+  end
+
+  subgraph adminapi["Admin API"]
+    users["/admin/users/*"]
+    sandboxes["/admin/sandboxes/*"]
+    aruns["/admin/runs/*"]
+    costs["/admin/costs"]
+    templates["/admin/templates/*"]
+    audit["/admin/audit-log"]
+  end
+
+  subgraph internal["Internal API"]
+    provider["/internal/provider/webhook"]
+    metrics["/internal/metrics/batch"]
+    logs["/internal/logs/batch"]
+    callbacks["/internal/artifacts/callback"]
+  end
+
+  user --> api
+  admin --> api
+  svc --> api
+  api --> userapi
+  api --> adminapi
+  api --> internal

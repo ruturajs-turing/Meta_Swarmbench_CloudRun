@@ -1,0 +1,25 @@
+flowchart LR
+  trainer[Trainer local terminal or IDE] --> gateway[Access gateway and terminal broker]
+  gateway --> auth[Control plane auth and session service]
+  auth --> parent[Parent cloud sandbox per trainer]
+  parent --> workspace[/workspace tasks runs artifacts/]
+  parent --> runner[runnerctl rich terminal CLI]
+  runner --> api[Control plane API]
+  api --> quota[Quota and TOML validator]
+  quota --> queue[Run queue and orchestrator]
+  queue --> adapter{Provider adapter}
+  adapter --> e2b[E2B sandbox]
+  adapter --> daytona[Daytona sandbox]
+  adapter --> selfhost[Future self-hosted sandbox]
+  e2b --> exec[Execution sandbox per run]
+  daytona --> exec
+  selfhost --> exec
+  exec --> logs[Live logs metrics events]
+  exec --> artifacts[Artifact bundle]
+  logs --> store[(DB and object storage)]
+  artifacts --> store
+  store --> parent
+  store --> admin[Internal admin panel]
+  admin --> controls[Pause refresh kill retry quota template cost]
+  controls --> api
+  exec --> destroy[Destroy execution sandbox after finalization]

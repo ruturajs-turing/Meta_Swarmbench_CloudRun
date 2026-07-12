@@ -1,0 +1,52 @@
+version = 1
+
+[run]
+name = "runnerctl-sample-task"
+command = "python eval.py"
+working_dir = "/run/task"
+timeout_seconds = 120
+result_file = "results/summary.json"
+
+[resources]
+profile = "small"
+cpu = 2
+memory_gb = 4
+disk_gb = 20
+gpu = "none"
+
+[image]
+registry = "local"
+repository = "python"
+tag = "3.12-slim"
+digest = "sha256:local-dev-placeholder"
+
+[inputs]
+include = [
+  "task.toml",
+  "eval.py"
+]
+exclude = [
+  ".git/**",
+  "__pycache__/**"
+]
+max_upload_mb = 32
+
+[outputs]
+include = [
+  "results/**",
+  "artifacts/**"
+]
+max_output_mb = 64
+
+[env]
+PYTHONUNBUFFERED = "1"
+
+[secrets]
+
+[network]
+egress = "allowlist"
+allow = []
+
+[limits]
+max_cost_usd = 1.00
+max_retries = 1

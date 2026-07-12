@@ -1,0 +1,26 @@
+{
+  "name": "AegisRun Foundry",
+  "theme": "operator-console",
+  "colors": {
+    "bgShell": "#101214",
+    "bgPanel": "#171A1F",
+    "bgTable": "#F8FAFC",
+    "textPrimary": "#E6EDF3",
+    "textInverse": "#111827",
+    "accentCyan": "#00A7B5",
+    "accentAmber": "#D99A00",
+    "accentRed": "#D14343",
+    "accentGreen": "#2E9D64",
+    "borderSoft": "#2B313A"
+  },
+  "radii": {
+    "panel": "6px",
+    "button": "6px",
+    "table": "4px"
+  },
+  "typography": {
+    "ui": "Inter, system-ui, sans-serif",
+    "mono": "JetBrains Mono, SFMono-Regular, monospace"
+  },
+  "density": "high"
+}

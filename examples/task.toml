@@ -1,0 +1,65 @@
+version = 1
+
+[run]
+name = "benchmark-run-001"
+command = "python -m evals.run --config eval.yaml"
+working_dir = "/run/task"
+timeout_seconds = 7200
+result_file = "results/summary.json"
+
+[resources]
+profile = "large"
+cpu = 8
+memory_gb = 16
+disk_gb = 50
+gpu = "none"
+
+[image]
+registry = "harbor.yourcompany.com/ml-runners"
+repository = "pytorch-runner"
+tag = "2026.07.10"
+digest = "sha256:REQUIRED_FOR_PRODUCTION"
+
+[inputs]
+include = [
+  "src/**",
+  "configs/**",
+  "data/sample/**",
+  "task.toml"
+]
+exclude = [
+  ".git/**",
+  "node_modules/**",
+  "__pycache__/**",
+  "*.ckpt",
+  "*.safetensors"
+]
+max_upload_mb = 2048
+
+[outputs]
+include = [
+  "logs/**",
+  "results/**",
+  "artifacts/**"
+]
+max_output_mb = 4096
+
+[env]
+PYTHONUNBUFFERED = "1"
+TOKENIZERS_PARALLELISM = "false"
+
+[secrets]
+HF_TOKEN = "vault://tenant/project/hf_token"
+
+[network]
+egress = "allowlist"
+allow = [
+  "pypi.org",
+  "files.pythonhosted.org",
+  "huggingface.co",
+  "s3.amazonaws.com"
+]
+
+[limits]
+max_cost_usd = 10.00
+max_retries = 1

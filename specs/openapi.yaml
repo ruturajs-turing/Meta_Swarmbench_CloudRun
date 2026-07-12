@@ -1,0 +1,344 @@
+openapi: 3.1.0
+info:
+  title: AegisRun Control Plane API
+  version: 2.0.0
+  description: Implementation-aligned API for trainer workspaces, child executions, results, and operator fleet controls.
+servers:
+  - url: http://localhost:18080
+paths:
+  /health:
+    get:
+      security: []
+      summary: Service liveness
+      responses:
+        "200": { description: Healthy }
+  /v1/sessions:
+    post:
+      security: []
+      summary: Authenticate by username or email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200": { description: Session plus parent state for trainers }
+        "401": { description: Invalid credentials }
+        "403": { description: Disabled account }
+  /v1/me:
+    get:
+      summary: Current account and usage summary
+      responses:
+        "200": { description: User }
+  /v1/quota:
+    get:
+      summary: Current run quota and parent capacity
+      responses:
+        "200": { description: Quota }
+  /v1/runtime:
+    get:
+      summary: Runtime readiness without secret values
+      responses:
+        "200": { description: Docker, image, Harbor and credential readiness }
+  /v1/terminal:
+    get:
+      summary: SSH and SFTP connection commands
+      responses:
+        "200": { description: Terminal endpoint }
+  /v1/workspace:
+    get:
+      summary: Ensure and return the current trainer workspace
+      responses:
+        "200": { description: Parent, quota, bundles, runs and staged uploads }
+  /v1/workspace/{action}:
+    post:
+      summary: Resume, pause, refresh, or destroy own parent
+      parameters:
+        - name: action
+          in: path
+          required: true
+          schema: { type: string, enum: [resume, pause, refresh, destroy] }
+      responses:
+        "200": { description: Updated parent }
+        "409": { description: Active child prevents destructive action }
+  /v1/tasks/upload:
+    post:
+      summary: Upload a tar.gz task bundle
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200": { description: Validated ready task bundle }
+        "400": { description: Invalid archive or task.toml }
+        "413": { description: Upload quota exceeded }
+  /v1/tasks/submit:
+    post:
+      summary: Atomically upload a local task bundle and queue its child execution
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, execution_mode]
+              properties:
+                file: { type: string, format: binary }
+                execution_mode: { type: string, enum: [probe, harbor], default: harbor }
+      responses:
+        "200": { description: Bundle, queued run, and authoritative task.toml resource resolution }
+        "400": { description: Invalid archive, task.toml, mode, or resource request }
+        "409": { description: Parent unavailable, runtime disabled, or quota reached }
+        "413": { description: Upload quota exceeded }
+  /v1/tasks/import-staged:
+    post:
+      summary: Import a task directory or archive from the SFTP incoming directory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [relative_path]
+              properties:
+                relative_path: { type: string }
+      responses:
+        "200": { description: Validated ready task bundle }
+  /v1/tasks:
+    get:
+      summary: List own task bundles
+      responses:
+        "200": { description: Bundles }
+  /v1/runs:
+    get:
+      summary: List own runs
+      responses:
+        "200": { description: Runs }
+    post:
+      summary: Queue a child execution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRunRequest" }
+      responses:
+        "200": { description: Queued run }
+        "400": { description: Mode/task/resource validation failure }
+        "409": { description: Runtime disabled or quota reached }
+  /v1/runs/{run_id}:
+    get:
+      summary: Get an owned run
+      parameters: [{ $ref: "#/components/parameters/RunId" }]
+      responses:
+        "200": { description: Run detail }
+        "404": { description: Run not found or not owned }
+  /v1/runs/{run_id}/cancel:
+    post:
+      summary: Cancel an active owned run
+      parameters: [{ $ref: "#/components/parameters/RunId" }]
+      responses:
+        "200": { description: Cancellation accepted }
+        "409": { description: Run already terminal }
+  /v1/runs/{run_id}/retry:
+    post:
+      summary: Queue a retry from a terminal run
+      parameters: [{ $ref: "#/components/parameters/RunId" }]
+      responses:
+        "200": { description: New queued run }
+        "409": { description: Source run is not terminal }
+  /v1/runs/{run_id}/events:
+    get:
+      summary: Ordered run events
+      parameters: [{ $ref: "#/components/parameters/RunId" }]
+      responses:
+        "200": { description: Events }
+  /v1/runs/{run_id}/logs:
+    get:
+      summary: Persisted stdout log records
+      parameters: [{ $ref: "#/components/parameters/RunId" }]
+      responses:
+        "200": { description: Logs }
+  /v1/runs/{run_id}/artifacts:
+    get:
+      summary: Result package metadata
+      parameters: [{ $ref: "#/components/parameters/RunId" }]
+      responses:
+        "200": { description: Artifacts }
+  /v1/runs/{run_id}/artifacts/{artifact_id}/download:
+    get:
+      summary: Download an owned result package
+      parameters:
+        - { $ref: "#/components/parameters/RunId" }
+        - { $ref: "#/components/parameters/ArtifactId" }
+      responses:
+        "200": { description: Artifact file }
+        "404": { description: Artifact not found or not owned }
+  /v1/runs/{run_id}/stream:
+    get:
+      summary: Stream run events over server-sent events
+      parameters: [{ $ref: "#/components/parameters/RunId" }]
+      responses:
+        "200": { description: text/event-stream }
+  /admin/overview:
+    get:
+      summary: Fleet lineage, counts, attention runs and runtime health
+      responses:
+        "200": { description: Operator overview }
+  /admin/users:
+    get:
+      summary: Filter and list users
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        "200": { description: Users }
+    post:
+      summary: Create a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserCreateRequest" }
+      responses:
+        "200": { description: Created user }
+        "409": { description: Username or email exists }
+  /admin/users/{user_id}:
+    patch:
+      summary: Update user identity, role or state
+      parameters: [{ $ref: "#/components/parameters/UserId" }]
+      responses:
+        "200": { description: Updated user }
+  /admin/users/{user_id}/reset-password:
+    post:
+      summary: Replace password hash and revoke sessions
+      parameters: [{ $ref: "#/components/parameters/UserId" }]
+      responses:
+        "200": { description: Password reset }
+  /admin/users/{user_id}/quota:
+    patch:
+      summary: Update run limits and parent capacity
+      parameters: [{ $ref: "#/components/parameters/UserId" }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuotaPatch" }
+      responses:
+        "200": { description: Updated quota }
+  /admin/parents:
+    get:
+      summary: Filter and list parent workspaces
+      parameters:
+        - { name: state, in: query, schema: { type: string } }
+        - { name: user_id, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        "200": { description: Parents }
+    post:
+      summary: Provision a trainer parent
+      responses:
+        "200": { description: Parent }
+        "409": { description: Parent already exists }
+  /admin/parents/{parent_id}/{action}:
+    post:
+      summary: Operate a parent provider container
+      parameters:
+        - { $ref: "#/components/parameters/ParentId" }
+        - name: action
+          in: path
+          required: true
+          schema: { type: string, enum: [resume, pause, refresh, destroy] }
+      responses:
+        "200": { description: Updated parent }
+        "409": { description: Active child prevents refresh/destroy }
+  /admin/parents/{parent_id}/stats:
+    get:
+      summary: Live parent provider telemetry
+      parameters: [{ $ref: "#/components/parameters/ParentId" }]
+      responses:
+        "200": { description: CPU, memory, PIDs and state }
+  /admin/runs:
+    get:
+      summary: Filter and list all child runs
+      parameters:
+        - { name: state, in: query, schema: { type: string } }
+        - { name: user_id, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 250 } }
+      responses:
+        "200": { description: Runs }
+  /admin/runs/{run_id}/force-cleanup:
+    post:
+      summary: Stop if needed and reconcile child cleanup
+      parameters: [{ $ref: "#/components/parameters/RunId" }]
+      responses:
+        "200": { description: Cleanup result }
+  /admin/providers:
+    get:
+      summary: Provider capabilities and runtime readiness
+      responses:
+        "200": { description: Providers }
+  /admin/audit:
+    get:
+      summary: Operator mutation audit stream
+      responses:
+        "200": { description: Audit events }
+  /admin/costs:
+    get:
+      summary: Child run and parent hourly estimates
+      responses:
+        "200": { description: Cost posture }
+  /admin/cleanup/reconcile:
+    post:
+      summary: Reconcile execution children and parent lifecycle
+      responses:
+        "200": { description: Cleanup, pause, refresh and repair counts }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    UserId: { name: user_id, in: path, required: true, schema: { type: string } }
+    ParentId: { name: parent_id, in: path, required: true, schema: { type: string } }
+    RunId: { name: run_id, in: path, required: true, schema: { type: string } }
+    ArtifactId: { name: artifact_id, in: path, required: true, schema: { type: string } }
+  schemas:
+    LoginRequest:
+      type: object
+      required: [identifier, password]
+      properties:
+        identifier: { type: string }
+        password: { type: string, format: password }
+    CreateRunRequest:
+      type: object
+      required: [task_bundle_id]
+      properties:
+        task_bundle_id: { type: string }
+        execution_mode: { type: string, enum: [probe, harbor], default: harbor }
+    UserCreateRequest:
+      type: object
+      required: [username, email, display_name, password]
+      properties:
+        username: { type: string, pattern: "^[a-zA-Z0-9._-]+$" }
+        email: { type: string, format: email }
+        display_name: { type: string }
+        password: { type: string, minLength: 8 }
+        role: { type: string, enum: [trainer, reviewer, admin], default: trainer }
+    QuotaPatch:
+      type: object
+      properties:
+        max_active_runs: { type: integer, minimum: 1, maximum: 10 }
+        max_queued_runs: { type: integer, minimum: 1, maximum: 100 }
+        max_runtime_seconds: { type: integer, minimum: 60, maximum: 43200 }
+        max_upload_mb: { type: integer }
+        max_output_mb: { type: integer }
+        max_monthly_cost: { type: [number, "null"] }
+        parent_cpu: { type: integer, minimum: 1, maximum: 16 }
+        parent_memory_mb: { type: integer, minimum: 1024, maximum: 65536 }
+        parent_disk_gb: { type: integer, minimum: 10, maximum: 500 }
+security:
+  - bearerAuth: []

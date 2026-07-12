@@ -1,0 +1,15 @@
+flowchart TB
+  local["Local runnerctl<br/>packages task"]
+  ssh["SSH / IDE session"]
+  gateway["Access Gateway"]
+  parent["Parent Sandbox<br/>/workspace/tasks"]
+  api["Control Plane"]
+  object["Object Store<br/>input bundles"]
+  exec["Execution Sandbox"]
+
+  local -->|"upload declared inputs"| api
+  ssh --> gateway --> parent
+  parent -->|"runnerctl run task.toml"| api
+  api -->|"store input bundle"| object
+  api -->|"stage bundle"| exec
+  exec -->|"logs/artifacts"| object

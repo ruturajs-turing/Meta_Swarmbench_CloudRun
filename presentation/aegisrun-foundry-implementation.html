@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AegisRun Foundry - Implementation and Workflow</title>
+<style>
+  :root{
+    --paper:#f5f4ef;
+    --paper-2:#fbfaf7;
+    --ink:#232019;
+    --ink-2:#332e26;
+    --muted:#6f685e;
+    --line:#dfdbd1;
+    --clay:#c9663b;
+    --clay-bg:#f4e7df;
+    --green:#3f8f57;
+    --green-bg:#e7f0e7;
+    --red:#c0402c;
+    --red-bg:#f6e2dc;
+    --blue:#3d6ea5;
+    --blue-bg:#e6eef6;
+    --code:#26231d;
+    --code-2:#332f28;
+    --code-ink:#efe9dc;
+    --serif:Georgia,"Iowan Old Style","Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans)}
+  body{overflow:hidden}
+  button{font:inherit}
+  .deck{position:relative;width:100vw;height:100vh;overflow:hidden;background:var(--paper)}
+  .deck::before{content:"";position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:80px 80px;opacity:.12;pointer-events:none}
+  .top-progress{position:absolute;left:0;top:0;height:4px;width:100%;background:#e9e5dc;z-index:30}
+  .top-progress span{display:block;height:100%;width:0;background:var(--clay);transition:width .35s ease}
+
+  .slide{position:absolute;inset:0;display:none;overflow:hidden;padding:52px max(58px,7vw) 66px}
+  .slide.active{display:flex;align-items:center}
+  .slide-inner{width:100%;max-width:1180px;margin:0 auto;position:relative;z-index:2}
+  .slide-inner.top{align-self:flex-start;padding-top:10px}
+  .kicker{margin:0 0 13px;font-family:var(--mono);font-size:12px;font-weight:750;text-transform:uppercase;color:var(--clay);letter-spacing:0}
+  h1,h2,h3,p{letter-spacing:0}
+  h1{margin:0 0 18px;font-family:var(--serif);font-size:58px;font-weight:600;line-height:1.05;max-width:19ch}
+  h2{margin:0;font-family:var(--serif);font-size:38px;font-weight:600;line-height:1.12;max-width:27ch}
+  h3{margin:0;font-size:16px;line-height:1.25}
+  p{margin:0 0 13px;color:var(--ink-2);font-size:19px;line-height:1.48;max-width:44ch}
+  p.wide{max-width:64ch}
+  p.small{font-size:15px;line-height:1.45;color:var(--muted)}
+  strong{font-weight:700}
+  code{font-family:var(--mono)}
+  .clay{color:var(--clay)}
+  .green{color:var(--green)}
+  .blue{color:var(--blue)}
+  .muted{color:var(--muted)}
+
+  .reveal{opacity:0;transform:translateY(12px)}
+  .slide.active .reveal{animation:reveal .5s cubic-bezier(.22,.72,.2,1) forwards;animation-delay:var(--delay,0ms)}
+  @keyframes reveal{to{opacity:1;transform:none}}
+
+  .tag{display:inline-flex;align-items:center;gap:7px;border-radius:4px;border:1px solid var(--line);background:var(--paper-2);padding:5px 9px;font-family:var(--mono);font-size:11px;font-weight:750;line-height:1;text-transform:uppercase;white-space:nowrap}
+  .tag::before{content:"";width:7px;height:7px;background:currentColor;border-radius:2px}
+  .tag.green{background:var(--green-bg);border-color:#c6ddc8;color:var(--green)}
+  .tag.blue{background:var(--blue-bg);border-color:#c4d5e5;color:var(--blue)}
+  .tag.clay{background:var(--clay-bg);border-color:#e6c6b6;color:var(--clay)}
+  .tag.red{background:var(--red-bg);border-color:#e5c1b6;color:var(--red)}
+
+  .section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;margin-bottom:24px}
+  .section-head .copy{max-width:68ch}
+  .section-head p{margin-top:10px;max-width:64ch;font-size:17px}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:stretch}
+  .split.narrow-left{grid-template-columns:.82fr 1.18fr}
+  .split.narrow-right{grid-template-columns:1.18fr .82fr}
+  .panel{border:1px solid var(--line);background:rgba(251,250,247,.84);border-radius:8px;padding:20px}
+  .panel.red{background:var(--red-bg);border-color:#e5c1b6}
+  .panel.green{background:var(--green-bg);border-color:#c6ddc8}
+  .panel.blue{background:var(--blue-bg);border-color:#c4d5e5}
+  .panel.clay{background:var(--clay-bg);border-color:#e6c6b6}
+  .panel-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;font-weight:750;color:var(--muted);margin-bottom:10px}
+  .panel h3{font-family:var(--serif);font-size:25px;font-weight:600;margin-bottom:11px}
+  .panel p{font-size:16px;line-height:1.45;max-width:none}
+  .panel ul,.clean-list{margin:0;padding:0;list-style:none}
+  .panel li,.clean-list li{position:relative;padding-left:17px;margin:0 0 9px;font-size:15px;line-height:1.38;color:var(--ink-2)}
+  .panel li::before,.clean-list li::before{content:"";position:absolute;left:0;top:8px;width:7px;height:2px;background:var(--clay)}
+  .panel.red li::before{background:var(--red)}
+  .panel.green li::before{background:var(--green)}
+  .panel.blue li::before{background:var(--blue)}
+
+  pre{margin:0;background:var(--code);color:var(--code-ink);border-radius:8px;padding:17px 19px;overflow:auto;font-family:var(--mono);font-size:13px;line-height:1.55;box-shadow:0 14px 28px rgba(35,32,25,.13)}
+  pre .dim{color:#9b9488}
+  pre .key{color:#e7a678}
+  pre .val{color:#a8d39b}
+  pre .info{color:#9fc2e4}
+  pre .ok{color:#9ed0a7}
+  .command{position:relative}
+  .command::before{content:"TERMINAL";display:block;margin:-4px 0 10px;color:#9b9488;font-family:var(--mono);font-size:10px;font-weight:750}
+
+  .hero .slide-inner{min-height:540px;display:flex;flex-direction:column;justify-content:center}
+  .hero h1{font-size:66px;max-width:15ch}
+  .hero p{font-size:21px;max-width:47ch}
+  .hero-meta{display:flex;gap:18px 30px;flex-wrap:wrap;margin-top:14px;padding-top:15px;border-top:1px solid var(--line);max-width:720px}
+  .hero-meta span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .hero-meta b{color:var(--ink)}
+  .hero-rail{position:absolute;left:7vw;right:7vw;bottom:82px;height:92px;display:flex;align-items:center;justify-content:space-between;z-index:1;opacity:.92}
+  .hero-node{position:relative;z-index:2;width:150px;min-height:54px;border:1px solid var(--line);border-radius:6px;background:var(--paper-2);padding:10px 12px}
+  .hero-node b{display:block;font-family:var(--mono);font-size:11px;margin-bottom:4px}
+  .hero-node span{font-size:12px;color:var(--muted)}
+  .hero-node.child{border-color:#c6ddc8;background:var(--green-bg)}
+  .hero-track{position:absolute;left:68px;right:68px;top:45px;height:2px;background:var(--line)}
+  .hero-packet{position:absolute;top:37px;left:62px;width:17px;height:17px;border:3px solid var(--paper);border-radius:3px;background:var(--clay);box-shadow:0 0 0 1px var(--clay);animation:heroPacket 7s ease-in-out infinite}
+  @keyframes heroPacket{0%,8%{left:62px;background:var(--clay)}44%,56%{left:calc(50% - 8px);background:var(--blue)}92%,100%{left:calc(100% - 79px);background:var(--green)}}
+
+  .arrow-big{display:flex;align-items:center;justify-content:center;color:var(--clay);font-family:var(--serif);font-size:42px}
+  .before-after{display:grid;grid-template-columns:1fr 54px 1fr;gap:18px;align-items:stretch}
+  .lane-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+  .lane-title h3{font-family:var(--serif);font-size:25px}
+  .mini-flow{display:flex;align-items:center;gap:7px;margin:16px 0 18px}
+  .mini-step{flex:1;border:1px solid rgba(0,0,0,.11);border-radius:5px;padding:9px 8px;text-align:center;font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.45)}
+  .mini-arrow{color:var(--muted);font-family:var(--mono)}
+
+  .plane-stack{display:grid;grid-template-columns:190px 1fr;gap:18px;align-items:stretch}
+  .actor-column{display:flex;flex-direction:column;gap:14px;justify-content:center}
+  .actor{border-left:4px solid var(--clay);padding:11px 12px;background:var(--paper-2);border-radius:0 6px 6px 0}
+  .actor.admin{border-color:var(--blue)}
+  .actor b{display:block;font-family:var(--mono);font-size:12px;margin-bottom:4px}
+  .actor span{font-size:13px;color:var(--muted)}
+  .planes{display:grid;gap:12px}
+  .plane{position:relative;display:grid;grid-template-columns:140px 1fr;gap:14px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:14px 17px;background:rgba(251,250,247,.9)}
+  .plane.control{border-left:5px solid var(--blue)}
+  .plane.workspace{border-left:5px solid var(--clay)}
+  .plane.execution{border-left:5px solid var(--green)}
+  .plane-name{font-family:var(--serif);font-size:21px;font-weight:600}
+  .plane-items{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .component{border:1px solid var(--line);border-radius:5px;background:#fff;padding:8px 10px;font-family:var(--mono);font-size:11px;white-space:nowrap}
+  .plane.execution .component:last-child{background:var(--green-bg);border-color:#c6ddc8}
+  .plane-flow{position:absolute;left:-12px;top:50%;width:10px;height:2px;background:var(--line)}
+
+  .workflow{position:relative;display:grid;grid-template-columns:repeat(8,1fr);gap:9px;margin-top:18px}
+  .workflow::before{content:"";position:absolute;left:5%;right:5%;top:69px;height:2px;background:var(--line)}
+  .workflow::after{display:none}
+  .step{position:relative;z-index:2;min-height:142px;border-top:4px solid var(--clay);border-radius:6px;background:var(--paper-2);padding:13px 11px 11px;box-shadow:0 5px 14px rgba(35,32,25,.055)}
+  .step:nth-child(n+6){border-top-color:var(--green)}
+  .step-n{font-family:var(--mono);font-size:11px;font-weight:800;color:var(--clay);margin-bottom:7px}
+  .step:nth-child(n+6) .step-n{color:var(--green)}
+  .step b{display:block;font-size:14px;margin-bottom:5px}
+  .step span{display:block;font-size:12px;line-height:1.35;color:var(--muted)}
+  .workflow-packet{position:absolute;z-index:3;top:62px;left:4%;width:15px;height:15px;border:3px solid var(--paper);border-radius:3px;background:var(--clay);animation:workflowPacket 6.5s ease-in-out infinite}
+  @keyframes workflowPacket{0%,6%{left:4%;background:var(--clay)}48%{left:50%;background:var(--blue)}94%,100%{left:95%;background:var(--green)}}
+
+  .boundary{display:grid;grid-template-columns:1fr 170px 1fr;gap:24px;align-items:center;margin-top:10px}
+  .machine{min-height:235px;border:1px solid var(--line);border-radius:8px;padding:22px;background:var(--paper-2)}
+  .machine.local{border-top:5px solid var(--clay)}
+  .machine.remote{border-top:5px solid var(--blue)}
+  .machine h3{font-family:var(--serif);font-size:27px;margin-bottom:14px}
+  .file-tree{font-family:var(--mono);font-size:12px;line-height:1.75;color:var(--muted)}
+  .file-tree b{color:var(--ink)}
+  .bridge{position:relative;text-align:center}
+  .bridge-line{height:2px;background:var(--line);margin:13px 0;position:relative}
+  .bridge-line::after{content:"";position:absolute;top:-5px;left:0;width:12px;height:12px;border-radius:3px;background:var(--clay);animation:bridge 2.8s ease-in-out infinite}
+  @keyframes bridge{0%{left:0;background:var(--clay)}50%{left:calc(100% - 12px);background:var(--blue)}100%{left:0;background:var(--green)}}
+  .scope-note{font-family:var(--mono);font-size:11px;color:var(--blue);margin-bottom:18px;line-height:1.4}
+  .bridge b{font-family:var(--mono);font-size:12px}
+
+  .resolve-flow{display:grid;grid-template-columns:1fr 52px 1fr 52px 1fr;gap:10px;align-items:center;margin-top:18px}
+  .resolve-node{min-height:138px;border:1px solid var(--line);border-radius:7px;background:var(--paper-2);padding:16px}
+  .resolve-node.source{border-top:4px solid var(--clay)}
+  .resolve-node.normal{border-top:4px solid var(--blue)}
+  .resolve-node.effective{border-top:4px solid var(--green)}
+  .resolve-node .label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:9px}
+  .resolve-node strong{display:block;font-size:24px;font-family:var(--serif);margin-bottom:8px}
+  .resolve-node span{display:block;font-size:13px;line-height:1.35;color:var(--muted)}
+  .resolve-arrow{text-align:center;font-size:27px;color:var(--clay)}
+  .proof-strip{display:flex;align-items:center;gap:18px;margin-top:16px;border-left:4px solid var(--green);padding:10px 14px;background:var(--green-bg)}
+  .proof-strip code{font-size:12px;color:#315f3d}
+
+  .lifelines{margin-top:12px}
+  .life-row{display:grid;grid-template-columns:150px 1fr;align-items:center;gap:16px;margin-bottom:16px}
+  .life-label b{display:block;font-family:var(--mono);font-size:12px}
+  .life-label span{font-size:12px;color:var(--muted)}
+  .life-track{display:flex;align-items:center;gap:5px;min-height:52px}
+  .state{flex:1;position:relative;border:1px solid var(--line);border-radius:5px;background:var(--paper-2);padding:10px 7px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .state::after{content:"";position:absolute;right:-6px;top:50%;width:6px;height:2px;background:var(--line)}
+  .state:last-child::after{display:none}
+  .life-row.parent .state{cursor:help}
+  .life-row.parent .state:focus-visible{outline:2px solid rgba(201,102,59,.35);outline-offset:3px}
+  .state-tip{position:absolute;left:50%;bottom:calc(100% + 12px);z-index:20;width:190px;padding:11px 12px;border:1px solid #d8d1c5;border-radius:6px;background:var(--code);color:var(--code-ink);box-shadow:0 12px 24px rgba(35,32,25,.18);font-family:var(--sans);font-size:11px;line-height:1.4;text-align:left;white-space:normal;opacity:0;visibility:hidden;transform:translate(-50%,6px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease;pointer-events:none}
+  .state-tip::after{content:"";position:absolute;left:50%;bottom:-6px;width:10px;height:10px;background:var(--code);border-right:1px solid #d8d1c5;border-bottom:1px solid #d8d1c5;transform:translateX(-50%) rotate(45deg)}
+  .state-tip b{display:block;margin-bottom:4px;color:#e7a678;font-family:var(--mono);font-size:10px;text-transform:uppercase}
+  .life-row.parent .state:hover .state-tip,.life-row.parent .state:focus-visible .state-tip{opacity:1;visibility:visible;transform:translate(-50%,0)}
+  .life-row.parent .state:first-child .state-tip{left:0;transform:translate(0,6px)}
+  .life-row.parent .state:first-child:hover .state-tip,.life-row.parent .state:first-child:focus-visible .state-tip{transform:translate(0,0)}
+  .life-row.parent .state:first-child .state-tip::after{left:26px}
+  .life-row.parent .state:last-child .state-tip{left:auto;right:0;transform:translate(0,6px)}
+  .life-row.parent .state:last-child:hover .state-tip,.life-row.parent .state:last-child:focus-visible .state-tip{transform:translate(0,0)}
+  .life-row.parent .state:last-child .state-tip::after{left:auto;right:20px;transform:rotate(45deg)}
+  .life-row.parent .state:nth-child(2),.life-row.parent .state:nth-child(4){color:var(--clay);border-color:#e6c6b6;background:var(--clay-bg)}
+  .life-row.child .state{animation:statePulse 5.6s linear infinite;animation-delay:var(--state-delay)}
+  .life-row.child .state:last-child{color:var(--green);border-color:#c6ddc8;background:var(--green-bg)}
+  @keyframes statePulse{0%,100%{box-shadow:none;color:var(--muted)}8%,16%{box-shadow:0 0 0 3px rgba(61,110,165,.18);color:var(--blue)}}
+  .lifetime-note{display:grid;grid-template-columns:150px 1fr;gap:16px}
+  .lifetime-note div:last-child{border-top:1px dashed var(--line);padding-top:11px;font-size:14px;color:var(--muted)}
+
+  .runtime-box{display:grid;grid-template-columns:180px 1fr 180px;gap:18px;align-items:center;margin-top:8px}
+  .runtime-side{border:1px solid var(--line);border-radius:7px;background:var(--paper-2);padding:16px;min-height:220px}
+  .runtime-side h3{font-family:var(--serif);font-size:22px;margin-bottom:12px}
+  .runtime-core{position:relative;border:2px solid #c6ddc8;border-radius:8px;background:var(--green-bg);padding:18px;min-height:285px}
+  .runtime-core::before{content:"EPHEMERAL CHILD";font-family:var(--mono);font-size:10px;font-weight:800;color:var(--green)}
+  .runtime-core h3{font-family:var(--serif);font-size:27px;margin:8px 0 15px}
+  .runtime-layer{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #c6ddc8;padding:10px 0;font-size:13px}
+  .runtime-layer code{font-size:11px;color:#315f3d;text-align:right}
+  .runtime-arrow{text-align:center;color:var(--clay);font-size:24px;margin:5px 0}
+
+  .artifact-flow{display:grid;grid-template-columns:1fr 54px 1fr 54px 1.15fr;gap:12px;align-items:center}
+  .artifact-node{border:1px solid var(--line);border-radius:7px;background:var(--paper-2);padding:17px;min-height:210px}
+  .artifact-node h3{font-family:var(--serif);font-size:23px;margin-bottom:13px}
+  .folder{font-family:var(--mono);font-size:12px;line-height:1.75;color:var(--muted)}
+  .folder b{color:var(--ink)}
+  .artifact-arrow{text-align:center;color:var(--clay);font-size:28px}
+  .install-band{margin-top:16px;display:flex;align-items:center;gap:14px;border:1px solid #c6ddc8;border-radius:7px;background:var(--green-bg);padding:12px 15px}
+  .install-band b{font-family:var(--mono);font-size:12px;color:var(--green)}
+  .install-band span{font-size:14px;color:#315f3d}
+
+  .terminal-wrap{display:grid;grid-template-columns:1.28fr .72fr;gap:25px;align-items:stretch}
+  .terminal{background:var(--code);color:var(--code-ink);border-radius:8px;box-shadow:0 16px 32px rgba(35,32,25,.17);overflow:hidden;min-height:390px}
+  .terminal-head{display:flex;justify-content:space-between;align-items:center;padding:10px 15px;background:var(--code-2);font-family:var(--mono);font-size:10px;color:#aaa296}
+  .terminal-body{padding:15px 17px;font-family:var(--mono);font-size:11.5px;line-height:1.62}
+  .terminal-line{opacity:0;transform:translateY(5px)}
+  .slide.active .terminal-line{animation:terminalLine .25s ease forwards;animation-delay:var(--line-delay)}
+  @keyframes terminalLine{to{opacity:1;transform:none}}
+  .terminal-line .prompt{color:#e7a678}.terminal-line .ok{color:#9ed0a7}.terminal-line .info{color:#9fc2e4}.terminal-line .dim{color:#8f887d}
+  .term-meter{height:4px;background:#4b463d;margin:6px 0 8px;overflow:hidden}
+  .term-meter span{display:block;height:100%;width:0;background:#9ed0a7}
+  .slide.active .term-meter span{animation:meter 1.25s ease forwards;animation-delay:850ms}
+  @keyframes meter{to{width:100%}}
+  .action-list{display:grid;gap:10px}
+  .action{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;border-bottom:1px solid var(--line);padding:4px 0 10px}
+  .action b:first-child{font-family:var(--serif);font-size:25px;color:var(--clay);font-weight:600}
+  .action strong{display:block;font-size:14px;margin-bottom:3px}
+  .action span{font-size:12px;line-height:1.35;color:var(--muted)}
+
+  .admin-shell{display:grid;grid-template-columns:160px 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--paper-2);min-height:390px}
+  .admin-nav{background:var(--code);color:var(--code-ink);padding:17px 13px}
+  .admin-brand{font-family:var(--serif);font-size:19px;margin-bottom:18px}
+  .admin-nav span{display:block;border-left:3px solid transparent;padding:8px 9px;font-family:var(--mono);font-size:10px;color:#aaa296}
+  .admin-nav span.active{border-color:var(--clay);background:#332f28;color:#fff}
+  .admin-main{padding:17px 19px}
+  .admin-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .admin-top h3{font-family:var(--serif);font-size:24px}
+  .lineage{display:grid;grid-template-columns:1fr 28px 1fr 28px 1fr;align-items:center;gap:7px;margin-bottom:14px}
+  .lineage-node{border:1px solid var(--line);border-radius:5px;padding:11px;background:#fff;min-height:66px}
+  .lineage-node b{display:block;font-family:var(--mono);font-size:10px;margin-bottom:5px}
+  .lineage-node span{font-size:11px;color:var(--muted)}
+  .lineage-arrow{text-align:center;color:var(--clay)}
+  .admin-table{width:100%;border-collapse:collapse;font-size:11px}
+  .admin-table th{text-align:left;font-family:var(--mono);font-size:9px;text-transform:uppercase;color:var(--muted);padding:8px;border-bottom:1px solid var(--line)}
+  .admin-table td{padding:9px 8px;border-bottom:1px solid #ebe7de}
+  .admin-table tr:last-child td{border-bottom:0}
+
+  .control-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px}
+  .control-card{border-top:4px solid var(--clay);border-radius:6px;background:var(--paper-2);padding:15px;min-height:175px}
+  .control-card:nth-child(2){border-top-color:var(--blue)}
+  .control-card:nth-child(3){border-top-color:var(--green)}
+  .control-card h3{font-family:var(--serif);font-size:22px;margin-bottom:10px}
+  .control-card li{font-size:13px}
+  .quota-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:15px}
+  .quota{border:1px solid var(--line);border-radius:5px;padding:10px 12px;background:rgba(251,250,247,.75)}
+  .quota b{display:block;font-family:var(--serif);font-size:24px;margin-bottom:3px}
+  .quota span{font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+  .setup-grid{display:grid;grid-template-columns:1.14fr .86fr;gap:24px;align-items:stretch}
+  .endpoint-list{display:grid;gap:10px}
+  .endpoint{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:8px 0}
+  .endpoint b{font-family:var(--mono);font-size:11px;color:var(--clay)}
+  .endpoint code{font-size:12px}
+  .endpoint span{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+
+  .evidence-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:22px;align-items:stretch}
+  .evidence-id{border-left:5px solid var(--clay);padding:6px 0 6px 18px}
+  .evidence-id h3{font-family:var(--serif);font-size:28px;margin-bottom:9px}
+  .evidence-id code{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+  .evidence-id .score{display:flex;align-items:baseline;gap:9px;margin-top:20px}
+  .evidence-id .score b{font-family:var(--serif);font-size:58px;color:var(--green)}
+  .evidence-id .score span{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .event-list{display:grid;gap:8px}
+  .event{display:grid;grid-template-columns:32px 165px 1fr;gap:9px;align-items:center;border-bottom:1px solid var(--line);padding:7px 0;font-size:12px}
+  .event b:first-child{font-family:var(--mono);color:var(--muted)}
+  .event code{font-size:10px;color:var(--blue)}
+  .event span{color:var(--ink-2)}
+
+  .evolution{display:grid;grid-template-columns:1fr 70px 1fr;gap:20px;align-items:center}
+  .evo-box{min-height:270px;border:1px solid var(--line);border-radius:8px;padding:21px;background:var(--paper-2)}
+  .evo-box.now{border-top:5px solid var(--clay)}
+  .evo-box.next{border-top:5px solid var(--blue)}
+  .evo-box h3{font-family:var(--serif);font-size:28px;margin-bottom:14px}
+  .evo-arrow{text-align:center;font-family:var(--serif);font-size:42px;color:var(--clay)}
+  .final-line{margin-top:20px;border-top:1px solid var(--line);padding-top:16px;font-family:var(--serif);font-size:25px;line-height:1.3;max-width:40ch}
+
+  .foot{position:absolute;left:max(58px,7vw);right:max(58px,7vw);bottom:22px;display:flex;align-items:center;justify-content:space-between;gap:18px;z-index:20;font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .dots{display:flex;gap:6px;align-items:center;justify-content:center;flex:1}
+  .dots button{width:8px;height:8px;border:0;border-radius:2px;background:#d2ccc1;padding:0;cursor:pointer;transition:transform .2s ease,background .2s ease}
+  .dots button.on{background:var(--clay);transform:scale(1.3)}
+  .nav{position:absolute;right:max(58px,7vw);bottom:14px;display:flex;gap:7px;z-index:25}
+  .nav button{width:36px;height:32px;border:1px solid var(--line);border-radius:6px;background:var(--paper-2);color:var(--ink);cursor:pointer;font-size:17px;line-height:1}
+  .nav button:hover,.nav button:focus-visible{border-color:var(--clay);color:var(--clay);outline:2px solid rgba(201,102,59,.18);outline-offset:2px}
+
+  @media (max-width:900px){
+    .slide{padding:38px 34px 68px;overflow-y:auto;align-items:flex-start}
+    h1,.hero h1{font-size:44px} h2{font-size:31px} p{font-size:17px}
+    .split,.split.narrow-left,.split.narrow-right,.setup-grid,.evidence-grid,.terminal-wrap{grid-template-columns:1fr}
+    .before-after{grid-template-columns:1fr}.before-after>.arrow-big{transform:rotate(90deg);height:30px}
+    .plane-stack{grid-template-columns:1fr}.actor-column{display:grid;grid-template-columns:1fr 1fr}
+    .workflow{grid-template-columns:repeat(2,1fr)}.workflow::before,.workflow::after,.workflow-packet{display:none}.step{min-height:118px}
+    .boundary{grid-template-columns:1fr}.bridge{padding:5px 60px}
+    .resolve-flow{grid-template-columns:1fr}.resolve-arrow{transform:rotate(90deg)}
+    .runtime-box,.artifact-flow,.evolution{grid-template-columns:1fr}.runtime-arrow,.artifact-arrow,.evo-arrow{transform:rotate(90deg)}
+    .control-grid{grid-template-columns:1fr}.quota-strip{grid-template-columns:1fr 1fr}
+    .hero-rail{display:none}.hero .slide-inner{min-height:0}
+    .admin-shell{grid-template-columns:120px 1fr}.lineage{grid-template-columns:1fr}.lineage-arrow{transform:rotate(90deg)}
+    .foot{left:34px;right:90px}.nav{right:34px}.dots{display:none}
+  }
+  @media (max-width:560px){
+    .slide{padding:30px 20px 72px}.section-head{display:block}.section-head .tag{margin-top:12px}
+    h1,.hero h1{font-size:36px}h2{font-size:27px}p{font-size:16px}
+    .workflow{grid-template-columns:1fr}.actor-column{grid-template-columns:1fr}.planes .plane{grid-template-columns:1fr}
+    .life-row,.lifetime-note{grid-template-columns:1fr}.life-track{overflow-x:auto}.state{min-width:92px}
+    .admin-shell{grid-template-columns:1fr}.admin-nav{display:none}.quota-strip{grid-template-columns:1fr}
+    .event{grid-template-columns:28px 1fr}.event span{grid-column:2}.foot{left:20px}.nav{right:20px}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;scroll-behavior:auto !important;transition-duration:.01ms !important}
+    .reveal,.terminal-line{opacity:1;transform:none}
+  }
+  @page{size:1280px 720px;margin:0}
+  @media print{
+    html,body,.deck{height:auto;overflow:visible;background:var(--paper)}
+    *,*::before,*::after{animation:none !important;transition:none !important}
+    .deck::before,.top-progress,.foot,.nav{display:none !important}
+    .slide{display:flex !important;position:relative;inset:auto;width:1280px;height:720px;overflow:hidden;page-break-after:always;break-after:page;padding:52px 82px 62px}
+    .slide:last-of-type{page-break-after:auto;break-after:auto}
+    .reveal,.terminal-line{opacity:1 !important;transform:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<main class="deck" id="deck">
+  <div class="top-progress" aria-hidden="true"><span id="topProgress"></span></div>
+
+  <section class="slide active hero" aria-label="Title slide">
+    <div class="slide-inner">
+      <div class="kicker reveal" style="--delay:40ms">Implementation and operating model</div>
+      <h1 class="reveal" style="--delay:110ms">AegisRun<br><span class="clay">Foundry</span></h1>
+      <p class="wide reveal" style="--delay:190ms">Give the platform a task folder path. It uploads the task, reads its TOML, creates the right child, runs Harbor, returns the logs, and destroys the child.</p>
+      <div class="hero-meta reveal" style="--delay:270ms">
+        <span><b>1</b> maintained parent per trainer</span>
+        <span><b>2</b> active children per trainer</span>
+        <span><b>24 h</b> parent refresh</span>
+        <span><b>0</b> provider keys in the parent</span>
+      </div>
+    </div>
+    <div class="hero-rail" aria-hidden="true">
+      <div class="hero-track"></div><div class="hero-packet"></div>
+      <div class="hero-node"><b>LOCAL PATH</b><span>trainer task folder</span></div>
+      <div class="hero-node"><b>CONTROL PLANE</b><span>validate and queue</span></div>
+      <div class="hero-node"><b>PARENT</b><span>managed workspace</span></div>
+      <div class="hero-node child"><b>CHILD</b><span>TOML resources</span></div>
+      <div class="hero-node"><b>RESULT</b><span>install or download</span></div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="What changed">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">The implementation change</div><h2>One path in. One terminal throughout.</h2></div>
+        <span class="tag green">Implemented</span>
+      </div>
+      <div class="before-after">
+        <article class="panel red reveal" style="--delay:90ms">
+          <div class="lane-title"><h3>Before</h3><span class="tag red">Two-window flow</span></div>
+          <div class="mini-flow"><div class="mini-step">SSH</div><div class="mini-arrow">&rarr;</div><div class="mini-step">SFTP</div><div class="mini-arrow">&rarr;</div><div class="mini-step">SSH</div></div>
+          <ul>
+            <li>The remote prompt could not read a laptop path.</li>
+            <li>The trainer had to stage the folder separately.</li>
+            <li>Child resources looked like a default profile.</li>
+            <li>Downloading still left manual extraction work.</li>
+          </ul>
+        </article>
+        <div class="arrow-big reveal" style="--delay:160ms">&rarr;</div>
+        <article class="panel green reveal" style="--delay:230ms">
+          <div class="lane-title"><h3>Now</h3><span class="tag green">Single window</span></div>
+          <div class="mini-flow"><div class="mini-step">PATH</div><div class="mini-arrow">&rarr;</div><div class="mini-step">RUN</div><div class="mini-arrow">&rarr;</div><div class="mini-step">RESULT</div></div>
+          <ul>
+            <li><code>runnerctl connect</code> owns the local file transfer.</li>
+            <li><code>/v1/tasks/submit</code> uploads, validates, and queues atomically.</li>
+            <li>TOML source values and Docker-effective limits are both visible.</li>
+            <li>Outputs can be installed safely back into the task folder.</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Three plane architecture">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Architecture</div><h2>Three planes, one source of truth</h2><p>The parent is a workspace, not the authority. The control plane owns orchestration, secrets, quotas, lifecycle, audit, and cleanup.</p></div>
+        <span class="tag blue">Control plane owned</span>
+      </div>
+      <div class="plane-stack">
+        <div class="actor-column reveal" style="--delay:80ms">
+          <div class="actor"><b>TRAINER</b><span>runnerctl or staged SSH</span></div>
+          <div class="actor admin"><b>OPERATOR</b><span>admin console only</span></div>
+        </div>
+        <div class="planes">
+          <div class="plane control reveal" style="--delay:140ms"><div class="plane-flow"></div><div class="plane-name">Control plane</div><div class="plane-items"><span class="component">FastAPI</span><span class="component">Postgres</span><span class="component">queue + quota</span><span class="component">audit</span><span class="component">artifact index</span></div></div>
+          <div class="plane workspace reveal" style="--delay:220ms"><div class="plane-flow"></div><div class="plane-name">Workspace plane</div><div class="plane-items"><span class="component">one parent / trainer</span><span class="component">tasks</span><span class="component">runs</span><span class="component">downloads</span><span class="component">managed image</span></div></div>
+          <div class="plane execution reveal" style="--delay:300ms"><div class="plane-flow"></div><div class="plane-name">Execution plane</div><div class="plane-items"><span class="component">one child / run</span><span class="component">exact CPU + RAM</span><span class="component">Harbor + OpenCode</span><span class="component">destroy after finalize</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Trainer workflow">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Trainer workflow</div><h2>The full run is one continuous transaction</h2><p>Every transition is visible in the same terminal and persisted as a run event.</p></div>
+        <span class="tag clay">Path to package</span>
+      </div>
+      <div class="workflow">
+        <div class="workflow-packet" aria-hidden="true"></div>
+        <div class="step reveal" style="--delay:60ms"><div class="step-n">01</div><b>Connect</b><span>Authenticate once with endpoint, username, and password.</span></div>
+        <div class="step reveal" style="--delay:100ms"><div class="step-n">02</div><b>Enter path</b><span>Select a task folder that exists on the trainer's computer.</span></div>
+        <div class="step reveal" style="--delay:140ms"><div class="step-n">03</div><b>Bundle</b><span>Exclude old execution logs and stream a tar archive.</span></div>
+        <div class="step reveal" style="--delay:180ms"><div class="step-n">04</div><b>Validate TOML</b><span>Resolve resources, timeout, network, mode, and quotas.</span></div>
+        <div class="step reveal" style="--delay:260ms"><div class="step-n">05</div><b>Create child</b><span>Launch the managed image with exact Docker CPU and RAM limits.</span></div>
+        <div class="step reveal" style="--delay:300ms"><div class="step-n">06</div><b>Follow run</b><span>Stream state changes, model logs, elapsed time, and result.</span></div>
+        <div class="step reveal" style="--delay:340ms"><div class="step-n">07</div><b>Finalize</b><span>Package outputs and copy them into the parent workspace.</span></div>
+        <div class="step reveal" style="--delay:380ms"><div class="step-n">08</div><b>Install result</b><span>Replace generated output folders or keep the archive for later.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Local path boundary">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Why runnerctl is the bridge</div><h2>The transfer starts where the task folder exists</h2><p><code>runnerctl</code> runs on the trainer's computer, packages the selected folder, and streams it into the managed parent. Raw SSH remains available for files already present in that remote workspace.</p></div>
+      </div>
+      <div class="boundary">
+        <div class="machine local reveal" style="--delay:90ms"><h3>Trainer computer</h3><div class="file-tree"><b>/my-task/</b><br>&nbsp;&nbsp;instruction.md<br>&nbsp;&nbsp;task.toml<br>&nbsp;&nbsp;decomposition.yaml<br>&nbsp;&nbsp;environment/<br>&nbsp;&nbsp;tests/</div></div>
+        <div class="bridge reveal" style="--delay:170ms"><div class="scope-note">Raw SSH scope:<br>remote workspace files</div><b>runnerctl</b><div class="bridge-line"></div><span class="tag clay">bundle + transfer</span></div>
+        <div class="machine remote reveal" style="--delay:250ms"><h3>Managed parent</h3><div class="file-tree"><b>/workspace/</b><br>&nbsp;&nbsp;incoming/<br>&nbsp;&nbsp;tasks/&lt;bundle&gt;/<br>&nbsp;&nbsp;runs/&lt;run&gt;/<br>&nbsp;&nbsp;downloads/<br>&nbsp;&nbsp;tmp/</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="TOML resource resolution">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Resource resolution</div><h2>The child is built from the task, not a hidden default</h2><p>SwarmBench reads <code>[environment]</code>. Generic AegisRun tasks read <code>[resources]</code>. Unsupported requests fail instead of silently shrinking.</p></div>
+        <span class="tag green">Docker verified</span>
+      </div>
+      <div class="resolve-flow">
+        <div class="resolve-node source reveal" style="--delay:70ms"><div class="label">task.toml source</div><strong>4 CPU</strong><span><code>[environment]</code><br><code>memory_mb = 8192</code><br><code>timeout_sec = 7200</code></span></div>
+        <div class="resolve-arrow reveal" style="--delay:130ms">&rarr;</div>
+        <div class="resolve-node normal reveal" style="--delay:190ms"><div class="label">normalized record</div><strong>medium</strong><span>4 CPU / 8 GB / 20 GB policy<br>network allowlist<br>source fields retained</span></div>
+        <div class="resolve-arrow reveal" style="--delay:250ms">&rarr;</div>
+        <div class="resolve-node effective reveal" style="--delay:310ms"><div class="label">Docker HostConfig</div><strong>4 CPU</strong><span>8192 MB effective limit<br>container ID recorded<br>child label: task.toml</span></div>
+      </div>
+      <div class="proof-strip reveal" style="--delay:380ms"><span class="tag green">Event 005</span><code>SANDBOX_CREATED: started with Docker limits 4 CPU / 8192 MB</code></div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Parent and child lifecycle">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Lifecycle</div><h2>The parent persists. Every child is disposable.</h2><p>The trainer can disconnect without losing an active run because the control plane, not the terminal session, owns execution.</p></div>
+      </div>
+      <div class="lifelines">
+        <div class="life-row parent reveal" style="--delay:80ms"><div class="life-label"><b>PARENT</b><span>one per trainer</span></div><div class="life-track"><div class="state" tabindex="0">PROVISION<span class="state-tip"><b>T+0 &middot; first sign-in</b>Create the parent from the current managed image and mount the trainer's persistent workspace.</span></div><div class="state" tabindex="0">RUNNING<span class="state-tip"><b>Active session or run</b>The workspace is ready for uploads and submissions. Child execution remains control-plane owned.</span></div><div class="state" tabindex="0">PAUSED<span class="state-tip"><b>After 15 minutes idle</b>Suspend parent compute to reduce cost. Tasks, runs, and downloads remain on persistent storage.</span></div><div class="state" tabindex="0">RESUMED<span class="state-tip"><b>Next login or submission</b>Wake the same parent and restore access to the existing workspace without recreating task data.</span></div><div class="state" tabindex="0">REFRESHED<span class="state-tip"><b>After 24 hours, when idle</b>Drain active work, recreate from the latest managed image, and remount the preserved workspace.</span></div></div></div>
+        <div class="life-row child reveal" style="--delay:170ms"><div class="life-label"><b>CHILD</b><span>one per run</span></div><div class="life-track"><div class="state" style="--state-delay:0ms">QUEUED</div><div class="state" style="--state-delay:700ms">PROVISION</div><div class="state" style="--state-delay:1400ms">STAGE</div><div class="state" style="--state-delay:2100ms">RUN</div><div class="state" style="--state-delay:2800ms">COLLECT</div><div class="state" style="--state-delay:3500ms">FINALIZE</div><div class="state" style="--state-delay:4200ms">DESTROY</div></div></div>
+        <div class="lifetime-note reveal" style="--delay:260ms"><div></div><div><strong>Refresh and destroy are blocked while children are active.</strong> Idle parents pause after 15 minutes; refresh is due after 24 hours; orphan cleanup runs independently of the trainer session.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Harbor execution internals">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Execution internals</div><h2>Harbor runs inside the child, under control-plane policy</h2><p>The managed image carries Harbor and OpenCode. The task is mounted for one run; Fireworks credentials exist only for that child lifetime.</p></div>
+      </div>
+      <div class="runtime-box">
+        <div class="runtime-side reveal" style="--delay:80ms"><h3>Injected</h3><ul class="clean-list"><li>task bundle mount</li><li>normalized timeout</li><li>network policy</li><li>short-lived provider secret</li></ul></div>
+        <div class="runtime-core reveal" style="--delay:160ms"><h3>Managed Harbor runner</h3><div class="runtime-layer"><span>Preflight</span><code>Fireworks auth + task shape</code></div><div class="runtime-layer"><span>Single agent</span><code>swarm-opencode-single</code></div><div class="runtime-layer"><span>Multi agent</span><code>swarm-opencode-multi</code></div><div class="runtime-layer"><span>Verifier</span><code>result.json + reward</code></div><div class="runtime-layer"><span>Output</span><code>execution_logs/</code></div></div>
+        <div class="runtime-side reveal" style="--delay:240ms"><h3>Never injected</h3><ul class="clean-list"><li>provider account control</li><li>admin credentials</li><li>other trainer files</li><li>unbounded lifecycle access</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Result and artifact workflow">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Result journey</div><h2>Finalize first. Destroy second.</h2><p>The platform does not remove the child until result collection and parent delivery have completed.</p></div>
+      </div>
+      <div class="artifact-flow">
+        <div class="artifact-node reveal" style="--delay:70ms"><h3>Child outputs</h3><div class="folder"><b>execution_logs/</b><br><b>logs/</b><br><b>results/</b><br><b>artifacts/</b></div></div>
+        <div class="artifact-arrow reveal" style="--delay:130ms">&rarr;</div>
+        <div class="artifact-node reveal" style="--delay:190ms"><h3>Durable package</h3><div class="folder"><b>artifact-bundle.tar.gz</b><br>SHA-256 manifest<br>artifact database row<br>authenticated download URL</div></div>
+        <div class="artifact-arrow reveal" style="--delay:250ms">&rarr;</div>
+        <div class="artifact-node reveal" style="--delay:310ms"><h3>Parent delivery</h3><div class="folder"><b>/runs/&lt;run_id&gt;/</b><br><b>/downloads/&lt;run_id&gt;-result.tar.gz</b><br>trainer install action<br><span class="green">child: DESTROYED</span></div></div>
+      </div>
+      <div class="install-band reveal" style="--delay:380ms"><b>SAFE INSTALL</b><span>Only <code>execution_logs</code>, <code>logs</code>, <code>results</code>, and <code>artifacts</code> are replaced. Task instructions, TOML, tests, and source data stay untouched.</span></div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Trainer terminal experience">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Trainer experience</div><h2>The terminal is the product surface</h2></div>
+        <span class="tag clay">No second window</span>
+      </div>
+      <div class="terminal-wrap">
+        <div class="terminal reveal" style="--delay:70ms">
+          <div class="terminal-head"><span>AEGISRUN / TRAINER</span><span>parent RUNNING &middot; 0/2 active</span></div>
+          <div class="terminal-body">
+            <div class="terminal-line" style="--line-delay:180ms"><span class="prompt">Select:</span> 1 &nbsp; Start a task from this computer</div>
+            <div class="terminal-line" style="--line-delay:300ms"><span class="prompt">Task folder path:</span> /.../669cce9a...COMMUNITYDUPLICATEDIGEST</div>
+            <div class="terminal-line" style="--line-delay:440ms"><span class="info">Preparing task...</span></div>
+            <div class="term-meter"><span></span></div>
+            <div class="terminal-line" style="--line-delay:900ms"><span class="ok">Task accepted</span>: swarmbench/669cce9a...</div>
+            <div class="terminal-line" style="--line-delay:1030ms"><span class="info">TOML [environment]</span>: 4 CPU / 8192 MB / 20 GB</div>
+            <div class="terminal-line" style="--line-delay:1160ms"><span class="dim">003</span> TASK_CONFIG_RESOLVED</div>
+            <div class="terminal-line" style="--line-delay:1290ms"><span class="dim">005</span> SANDBOX_CREATED &nbsp; Docker limits 4 CPU / 8192 MB</div>
+            <div class="terminal-line" style="--line-delay:1420ms"><span class="dim">008</span> RESULT_COPIED_TO_PARENT</div>
+            <div class="terminal-line" style="--line-delay:1550ms"><span class="dim">010</span> SANDBOX_DESTROYED</div>
+            <div class="terminal-line" style="--line-delay:1680ms"><br><span class="ok">SUCCEEDED &nbsp; result=PASS</span></div>
+          </div>
+        </div>
+        <div class="action-list reveal" style="--delay:180ms">
+          <div class="action"><b>1</b><div><strong>Start</strong><span>Local path, automatic upload, live follow.</span></div></div>
+          <div class="action"><b>2</b><div><strong>Inspect</strong><span>Runs, events, state, resources, elapsed time.</span></div></div>
+          <div class="action"><b>3</b><div><strong>Control</strong><span>Stop an active run or retry a terminal run.</span></div></div>
+          <div class="action"><b>4</b><div><strong>Collect</strong><span>Install outputs, download archive, or leave in parent.</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Admin control panel">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Operator console</div><h2>The admin panel manages the fleet, not trainer submissions</h2><p>Operators see lineage from user to parent to child to result, then act on the real provider records.</p></div>
+        <span class="tag blue">Admin only</span>
+      </div>
+      <div class="admin-shell reveal" style="--delay:90ms">
+        <nav class="admin-nav"><div class="admin-brand">AegisRun</div><span>Overview</span><span>Users</span><span class="active">Workspaces</span><span>Runs</span><span>Runtime</span><span>Audit</span></nav>
+        <div class="admin-main"><div class="admin-top"><h3>Live workspace lineage</h3><span class="tag green">Provider healthy</span></div><div class="lineage"><div class="lineage-node"><b>TRAINER</b><span>trainer / active</span></div><div class="lineage-arrow">&rarr;</div><div class="lineage-node"><b>PARENT</b><span>par_34d... / running</span></div><div class="lineage-arrow">&rarr;</div><div class="lineage-node"><b>CHILD</b><span>run_d902... / finalized</span></div></div><table class="admin-table"><thead><tr><th>Resource</th><th>Provider ID</th><th>Capacity</th><th>State</th><th>Action</th></tr></thead><tbody><tr><td>Parent workspace</td><td>6c5486758735</td><td>2 CPU / 6 GB</td><td><span class="green">RUNNING</span></td><td>pause &middot; refresh</td></tr><tr><td>Execution child</td><td>efb8653e0472</td><td>4 CPU / 8 GB</td><td>DESTROYED</td><td>inspect &middot; retry</td></tr><tr><td>Result package</td><td>run_d902...</td><td>SHA-256 stored</td><td><span class="green">READY</span></td><td>download</td></tr></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Security and cost controls">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Guardrails</div><h2>Security, cleanup, and cost are platform behavior</h2><p>The trainer cannot bypass these controls from the parent or from task TOML.</p></div>
+      </div>
+      <div class="control-grid">
+        <article class="control-card reveal" style="--delay:70ms"><h3>Isolation</h3><ul class="clean-list"><li>one fresh child per run</li><li>safe archive extraction</li><li>tenant-scoped workspaces</li><li>no provider keys in parent</li></ul></article>
+        <article class="control-card reveal" style="--delay:140ms"><h3>Authority</h3><ul class="clean-list"><li>control-plane quotas</li><li>managed runner image</li><li>audited admin mutations</li><li>server-side TOML validation</li></ul></article>
+        <article class="control-card reveal" style="--delay:210ms"><h3>Cost control</h3><ul class="clean-list"><li>hard child timeout</li><li>queue over concurrency</li><li>idle parent pause</li><li>finalizer plus orphan reconciler</li></ul></article>
+      </div>
+      <div class="quota-strip reveal" style="--delay:300ms"><div class="quota"><b>1</b><span>parent / trainer</span></div><div class="quota"><b>2</b><span>active children</span></div><div class="quota"><b>15 min</b><span>idle pause</span></div><div class="quota"><b>24 h</b><span>parent refresh</span></div></div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Local setup">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Internal setup</div><h2>Local Docker mirrors the cloud contract</h2><p>Probe mode proves transfer, resources, lifecycle, artifacts, and cleanup without model spend. Harbor mode adds the managed runner and Fireworks secret.</p></div>
+      </div>
+      <div class="setup-grid">
+        <pre class="command reveal" style="--delay:70ms"><span class="dim"># 1. build the maintained Harbor/OpenCode image</span>
+docker build -f runtimes/harbor-runner/Dockerfile \
+  -t aegisrun/harbor-runner:local ../harbor
+
+<span class="dim"># 2. start the control plane and managed runtime</span>
+AEGISRUN_HARBOR_RUNTIME_ENABLED=true \
+AEGISRUN_HARBOR_RUNNER_IMAGE=aegisrun/harbor-runner:local \
+FIREWORKS_API_KEY=&lt;secret&gt; \
+docker compose up -d --build
+
+<span class="dim"># 3. enter the trainer interface</span>
+./cli/runnerctl connect --endpoint http://localhost:18080 \
+  --user trainer</pre>
+        <div class="panel reveal" style="--delay:170ms"><div class="panel-label">Local surfaces</div><div class="endpoint-list"><div class="endpoint"><b>ADMIN</b><div><code>localhost:5177</code><span>fleet operations</span></div></div><div class="endpoint"><b>API</b><div><code>localhost:18080</code><span>runnerctl + admin API</span></div></div><div class="endpoint"><b>SSH</b><div><code>localhost:2222</code><span>staged-task fallback</span></div></div><div class="endpoint"><b>DB</b><div><code>localhost:55432</code><span>Postgres system of record</span></div></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Verified implementation evidence">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Verified against a real task</div><h2>The lifecycle proof is in the event record</h2></div>
+        <span class="tag green">9 tests passed</span>
+      </div>
+      <div class="evidence-grid">
+        <div class="evidence-id reveal" style="--delay:70ms"><h3>Community Duplicate Digest</h3><code>669cce9a14af4a168301f4bc346702a8</code><div class="score"><b>PASS</b><span>run_d9025416a38c4d17</span></div><p class="small">Probe mode was used for this verification, so no Fireworks model call or model cost was incurred.</p></div>
+        <div class="event-list reveal" style="--delay:160ms">
+          <div class="event"><b>003</b><code>TASK_CONFIG_RESOLVED</code><span><strong>[environment]</strong> &rarr; 4 CPU / 8192 MB / 20 GB</span></div>
+          <div class="event"><b>005</b><code>SANDBOX_CREATED</code><span>Docker confirmed <strong>4 CPU / 8192 MB</strong></span></div>
+          <div class="event"><b>006</b><code>STRUCTURE_PROBE</code><span>Required Harbor package shape passed</span></div>
+          <div class="event"><b>008</b><code>RESULT_COPIED</code><span>Artifact copied into the trainer parent</span></div>
+          <div class="event"><b>009</b><code>RUN_COMPLETED</code><span>Exit code 0, result PASS</span></div>
+          <div class="event"><b>010</b><code>SANDBOX_DESTROYED</code><span>Child removed after finalization</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" aria-label="Cloud evolution and takeaway">
+    <div class="slide-inner">
+      <div class="section-head reveal">
+        <div class="copy"><div class="kicker">Cloud evolution</div><h2>The runtime changes. The trainer contract does not.</h2><p>The local Docker adapter proves the behavior. E2B, Daytona, or a self-hosted sandbox provider can replace the execution adapter without changing the task path, TOML, events, or result flow.</p></div>
+      </div>
+      <div class="evolution">
+        <div class="evo-box now reveal" style="--delay:80ms"><h3>Internal test now</h3><ul class="clean-list"><li>Docker parent and child</li><li>local S3-shaped storage</li><li>Postgres metadata</li><li>same-machine provider socket</li></ul></div>
+        <div class="evo-arrow reveal" style="--delay:160ms">&rarr;</div>
+        <div class="evo-box next reveal" style="--delay:240ms"><h3>Cloud deployment</h3><ul class="clean-list"><li>E2B or Daytona adapter</li><li>object storage artifacts</li><li>short-lived SSH certificates</li><li>provider-native resource and disk limits</li></ul></div>
+      </div>
+      <div class="final-line reveal" style="--delay:330ms">The trainer gives AegisRun a path. The platform owns everything after that.</div>
+    </div>
+  </section>
+
+  <footer class="foot"><span>AegisRun Foundry</span><div class="dots" id="dots" aria-label="Slide navigation"></div><span id="count">1 / 15</span></footer>
+  <nav class="nav" aria-label="Presentation controls"><button id="prev" type="button" aria-label="Previous slide" title="Previous slide">&larr;</button><button id="next" type="button" aria-label="Next slide" title="Next slide">&rarr;</button></nav>
+</main>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  const dots=document.getElementById('dots');
+  const count=document.getElementById('count');
+  const topProgress=document.getElementById('topProgress');
+  let index=0;
+  let touchStartX=0;
+
+  slides.forEach((slide,slideIndex)=>{
+    const button=document.createElement('button');
+    button.type='button';
+    button.setAttribute('aria-label',`Go to slide ${slideIndex+1}`);
+    button.addEventListener('click',()=>setSlide(slideIndex));
+    dots.appendChild(button);
+  });
+
+  function setSlide(nextIndex){
+    index=Math.max(0,Math.min(slides.length-1,nextIndex));
+    slides.forEach((slide,slideIndex)=>slide.classList.toggle('active',slideIndex===index));
+    [...dots.children].forEach((dot,dotIndex)=>dot.classList.toggle('on',dotIndex===index));
+    count.textContent=`${index+1} / ${slides.length}`;
+    topProgress.style.width=`${((index+1)/slides.length)*100}%`;
+    history.replaceState(null,'',`#${index+1}`);
+  }
+
+  function go(delta){setSlide(index+delta)}
+  document.getElementById('prev').addEventListener('click',()=>go(-1));
+  document.getElementById('next').addEventListener('click',()=>go(1));
+
+  addEventListener('keydown',event=>{
+    if(['ArrowRight',' ','PageDown'].includes(event.key)){event.preventDefault();go(1)}
+    else if(['ArrowLeft','PageUp'].includes(event.key)){event.preventDefault();go(-1)}
+    else if(event.key==='Home'){setSlide(0)}
+    else if(event.key==='End'){setSlide(slides.length-1)}
+    else if(event.key.toLowerCase()==='f'){
+      if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    }
+  });
+
+  addEventListener('touchstart',event=>{touchStartX=event.changedTouches[0].clientX},{passive:true});
+  addEventListener('touchend',event=>{
+    const delta=event.changedTouches[0].clientX-touchStartX;
+    if(Math.abs(delta)>55)go(delta<0?1:-1);
+  },{passive:true});
+
+  const initial=Number(location.hash.slice(1));
+  setSlide(Number.isFinite(initial)&&initial>0?initial-1:0);
+</script>
+</body>
+</html>

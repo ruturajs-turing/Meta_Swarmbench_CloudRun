@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AegisRun Foundry</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail">
+        <div class="brand">
+          <div class="mark">AR</div>
+          <div>
+            <strong>AegisRun</strong>
+            <span>Foundry</span>
+          </div>
+        </div>
+        <nav>
+          <button class="active">Fleet</button>
+          <button>Runs</button>
+          <button>Workspaces</button>
+          <button>Cleanup</button>
+          <button>Templates</button>
+          <button>Costs</button>
+        </nav>
+        <div class="quota-card">
+          <span class="label">Active runs</span>
+          <strong>17 / 40</strong>
+          <div class="meter"><i style="width:42%"></i></div>
+          <small>2 users at hard limit</small>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Control plane</p>
+            <h1>Fleet Command</h1>
+          </div>
+          <div class="actions">
+            <button class="btn">Export audit</button>
+            <button class="btn danger">Kill new runs</button>
+          </div>
+        </header>
+
+        <section class="metrics">
+          <article>
+            <span>Active parents</span>
+            <strong>31</strong>
+            <small>6 refresh pending</small>
+          </article>
+          <article>
+            <span>Execution sandboxes</span>
+            <strong>17</strong>
+            <small>11 E2B · 6 Daytona</small>
+          </article>
+          <article>
+            <span>Queue wait p95</span>
+            <strong>4m 12s</strong>
+            <small>within SLO</small>
+          </article>
+          <article class="warn">
+            <span>Cleanup debt</span>
+            <strong>3</strong>
+            <small>1 retry blocked</small>
+          </article>
+          <article>
+            <span>Cost burn</span>
+            <strong>$18.42/h</strong>
+            <small>$212.80 today</small>
+          </article>
+        </section>
+
+        <section class="grid">
+          <article class="panel span-2">
+            <div class="panel-head">
+              <h2>Live runs</h2>
+              <span class="chip live">streaming</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Run</th>
+                  <th>User</th>
+                  <th>Provider</th>
+                  <th>Profile</th>
+                  <th>State</th>
+                  <th>Elapsed</th>
+                  <th>Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="mono">r_01J8</td>
+                  <td>maddy@turing</td>
+                  <td>E2B</td>
+                  <td>large</td>
+                  <td><span class="chip cyan">running</span></td>
+                  <td>12m 44s</td>
+                  <td>$1.42</td>
+                </tr>
+                <tr>
+                  <td class="mono">r_01J7</td>
+                  <td>sg@turing</td>
+                  <td>Daytona</td>
+                  <td>medium</td>
+                  <td><span class="chip amber">collecting</span></td>
+                  <td>08m 21s</td>
+                  <td>$0.81</td>
+                </tr>
+                <tr>
+                  <td class="mono">r_01J6</td>
+                  <td>qa-lead@turing</td>
+                  <td>E2B</td>
+                  <td>xlarge</td>
+                  <td><span class="chip red">cleanup failed</span></td>
+                  <td>31m 09s</td>
+                  <td>$4.73</td>
+                </tr>
+              </tbody>
+            </table>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Provider health</h2>
+            </div>
+            <div class="health">
+              <div><span class="dot ok"></span>E2B <b>healthy</b></div>
+              <div><span class="dot warn"></span>Daytona <b>rate-limit watch</b></div>
+              <div><span class="dot ok"></span>Object store <b>healthy</b></div>
+            </div>
+          </article>
+
+          <article class="panel span-2">
+            <div class="panel-head">
+              <h2>Run r_01J8 detail</h2>
+              <span class="chip cyan">RUNNING</span>
+            </div>
+            <div class="timeline">
+              <span class="done">requested</span>
+              <span class="done">validated</span>
+              <span class="done">provisioned</span>
+              <span class="active">running</span>
+              <span>finalizing</span>
+              <span>destroyed</span>
+            </div>
+            <pre class="log">10:00:05  starting run-agent
+10:00:08  staging 184 files / 312 MB
+10:01:11  command started: python -m evals.run
+10:11:44  metric cpu=72.4 mem=6.0GiB disk=14.8GiB
+10:12:44  artifact results/summary.json written</pre>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Cleanup queue</h2>
+              <span class="chip amber">3 pending</span>
+            </div>
+            <ul class="list">
+              <li><b>sbx_abc</b><span>terminal run · retry kill</span></li>
+              <li><b>sbx_def</b><span>upload finalizing</span></li>
+              <li><b>sbx_ghi</b><span>stale provisioning</span></li>
+            </ul>
+          </article>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

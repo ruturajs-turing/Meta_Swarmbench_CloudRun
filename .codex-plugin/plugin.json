@@ -1,0 +1,22 @@
+{
+  "name": "aegisrun-foundry",
+  "version": "0.1.0",
+  "description": "Product-grade blueprint for AegisRun Foundry, a multi-tenant remote execution platform with parent workspaces, per-run sandboxes, admin controls, cost tracking, cleanup, and test plans.",
+  "author": {
+    "name": "Ruturaj Solanki"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AegisRun Foundry",
+    "shortDescription": "Blueprint for a secure remote execution foundry.",
+    "longDescription": "AegisRun Foundry packages architecture, lifecycle, API, database, TOML, admin, security, cleanup, cost-control, UX, runbook, and test-plan docs for a multi-tenant remote execution platform.",
+    "developerName": "Ruturaj Solanki",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Architecture",
+      "Documentation",
+      "Planning"
+    ],
+    "defaultPrompt": "Use the AegisRun Foundry blueprint to plan, review, or implement a multi-tenant remote execution platform."
+  }
+}
